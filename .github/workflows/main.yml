@@ -19,21 +19,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      - name: Install system dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip zip unzip openjdk-17-jdk
-          pip install --upgrade pip
-          pip install buildozer cython virtualenv
-
-      - name: Build APK
-        working-directory: ./ai_copywriter_app_package_v2
-        run: |
-          buildozer init
-          buildozer android debug
-
-      - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AI-Copywriter-APK
-          path: ai_copywriter_app_package_v2/bin/*.apk
+          sudo apt install -y python3-pip
