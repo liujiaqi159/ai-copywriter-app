@@ -1,12 +1,3 @@
-# ==========================================================
-# 🏗️  GitHub Actions Workflow
-# 构建 AI Copywriter App (Android APK)
-# ==========================================================
-# ✅ 支持手动触发与 main 分支 push 触发
-# ✅ 修复 runner.temp 未识别问题
-# ✅ 自动构建 Debug APK 并上传 Artifact
-# ==========================================================
-
 name: Build AI Copywriter App (Android APK)
 
 on:
@@ -19,65 +10,43 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # ✅ 环境变量
     env:
-      ANDROID_SDK_ROOT: ${{ runner.workspace }}/android-sdk
-      ANDROID_HOME: ${{ runner.workspace }}/android-sdk
+      ANDROID_SDK_ROOT: /home/runner/android-sdk
+      ANDROID_HOME: /home/runner/android-sdk
       JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
 
     steps:
-      # --------------------------------------------------
-      # 1️⃣ Checkout 源代码
-      # --------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # --------------------------------------------------
-      # 2️⃣ 设置 Python 环境（若项目中有 Python 构建脚本）
-      # --------------------------------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.10"
 
-      # --------------------------------------------------
-      # 3️⃣ 设置 Java 环境
-      # --------------------------------------------------
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      # --------------------------------------------------
-      # 4️⃣ 安装 Android SDK
-      # --------------------------------------------------
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          sdk-version: '34'
-
-      # --------------------------------------------------
-      # 5️⃣ 安装 Python 依赖（如果有 requirements.txt）
-      # --------------------------------------------------
       - name: Install dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y zip unzip openjdk-17-jdk wget
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install buildozer cython virtualenv
 
-      # --------------------------------------------------
-      # 6️⃣ 构建 Android APK
-      # --------------------------------------------------
-      - name: Build Android APK
+      - name: Install Android SDK
         run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+          cd $ANDROID_SDK_ROOT/cmdline-tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9123335_latest.zip -O tools.zip
+          unzip tools.zip -d latest
+          yes | latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
+          latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
-      # --------------------------------------------------
-      # 7️⃣ 上传 APK 构建结果
-      # --------------------------------------------------
+      - name: Build APK
+        run: |
+          cd ai_copywriter_app_package_v2
+          buildozer android debug
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: ai_copywriter_app
+          path: ai_copywriter_app_package_v2/bin/*.apk
