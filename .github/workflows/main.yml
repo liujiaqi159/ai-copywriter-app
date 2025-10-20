@@ -9,6 +9,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
+      ANDROID_HOME: ${{ runner.temp }}/android-sdk
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
 
     steps:
       - name: Checkout repository
@@ -19,23 +23,68 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      - name: Install system packages
         run: |
           sudo apt update
-          sudo apt install -y python3-pip zip unzip openjdk-17-jdk wget
+          sudo apt install -y python3-pip zip unzip openjdk-17-jdk wget tar git build-essential
           pip install --upgrade pip
           pip install buildozer cython virtualenv
 
-      - name: Install Android SDK and accept licenses
+      - name: Install Android commandline tools
         run: |
-          yes | sdkmanager --licenses || true
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
+          cd $ANDROID_SDK_ROOT
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+          unzip -q cmdline-tools.zip -d cmdline-tools_tmp
+          mkdir -p $ANDROID_SDK_ROOT/cmdline-tools/latest
+          mv cmdline-tools_tmp/cmdline-tools/* $ANDROID_SDK_ROOT/cmdline-tools/latest/
+          rm -rf cmdline-tools.zip cmdline-tools_tmp
+          export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$PATH
+          sdkmanager --version || true
 
-      - name: Build APK
+      - name: Install SDK platforms, build-tools and NDK (auto accept licenses)
         run: |
-          cd ai_copywriter_app_package_v2
-          buildozer android debug
+          export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH
+          yes | sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses || true
+          sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.2" "build-tools;31.0.0" "ndk;25.2.9519653" || true
+          ls -la $ANDROID_SDK_ROOT
 
-      - name: Upload APK artifact
+      - name: Set Java home and show env
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME"
+          java -version
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          ls -la $ANDROID_SDK_ROOT
+
+      - name: Prepare buildozer working dir
+        run: |
+          # ensure working directory exists
+          ls -la
+          ls -la ai_copywriter_app_package_v2 || true
+
+      - name: Build APK (verbose)
+        working-directory: ./ai_copywriter_app_package_v2
+        env:
+          ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
+          ANDROID_HOME: ${{ runner.temp }}/android-sdk
+          JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
+          P4A_BOOTSTRAP: sdl2
+        run: |
+          # print versions
+          which buildozer || true
+          buildozer --version || true
+          python -V
+          # ensure buildozer.spec exists
+          if [ ! -f buildozer.spec ]; then
+            echo "ERROR: buildozer.spec not found in $(pwd)"
+            ls -la
+            exit 2
+          fi
+          # verbose build so logs are long and informative
+          buildozer -v android debug || { echo "Buildozer failed with exit $?: see log above"; exit 1; }
+
+      - name: Upload APK artifact (if exists)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ai-copywriter-app
