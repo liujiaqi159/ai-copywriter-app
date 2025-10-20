@@ -4,44 +4,36 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: '3.10'
 
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y python3-pip python3-setuptools git zip openjdk-11-jdk
+          sudo apt install -y python3-pip zip unzip openjdk-17-jdk
+          pip install --upgrade pip
           pip install buildozer cython virtualenv
 
-      - name: Initialize Buildozer
-        run: |
-          if [ ! -f buildozer.spec ]; then
-            buildozer init
-          fi
-      - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses
-
-      - name: Install Android Build Tools manually
-        run: |
-          sdkmanager "build-tools;36.0.0" "platforms;android-33"
-
       - name: Build APK
+        working-directory: ./ai_copywriter_app_package_v2
         run: |
+          buildozer init
           buildozer android debug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ai-copywriter-app
-          path: bin/*.apk
+          name: AI-Copywriter-APK
+          path: ai_copywriter_app_package_v2/bin/*.apk
