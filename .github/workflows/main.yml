@@ -16,14 +16,17 @@ jobs:
       JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
 
     steps:
+      # 拉取仓库代码
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 设置 Python 环境
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
+      # 安装依赖（包括 Java、Buildozer 等）
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -31,20 +34,24 @@ jobs:
           python -m pip install --upgrade pip
           pip install buildozer cython virtualenv
 
+      # 安装 Android SDK（修复 sdkmanager 路径错误）
       - name: Install Android SDK
         run: |
           mkdir -p $ANDROID_SDK_ROOT/cmdline-tools
           cd $ANDROID_SDK_ROOT/cmdline-tools
           wget https://dl.google.com/android/repository/commandlinetools-linux-9123335_latest.zip -O tools.zip
           unzip tools.zip -d latest
-          yes | latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
-          latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.2"
+          mv latest/cmdline-tools/* latest/ || true
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT --licenses
+          $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_SDK_ROOT "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
+      # 构建 APK
       - name: Build APK
         run: |
           cd ai_copywriter_app_package_v2
           buildozer android debug
 
+      # 上传 APK 文件到 GitHub Actions Artifact
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
